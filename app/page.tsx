@@ -15,6 +15,7 @@ import { Download, Filter, AlertTriangle, Clock, Search, Bell } from 'lucide-rea
 import { MetricCard } from '@/components/lmis/metric-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ExportModal } from '@/components/lmis/export-modal';
 import {
   Select,
   SelectContent,
@@ -35,7 +36,6 @@ import {
   getMetrics,
   getChartData,
   getWatchlist,
-  toCSV,
   type Sector,
   type WatchlistEntry,
 } from '@/lib/lmis-data';
@@ -59,7 +59,7 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload || !payload.length) return null;
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 shadow-md">
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 shadow-md font-sans">
       <p className="mb-1.5 text-xs font-semibold text-slate-900">{label}</p>
       {payload.map((entry) => (
         <div key={entry.dataKey} className="flex items-center gap-2 text-xs">
@@ -79,35 +79,14 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 
 export default function NationalOverviewPage() {
   const [sector, setSector] = useState<Sector>('All Sectors');
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const metrics = useMemo(() => getMetrics(sector), [sector]);
   const chartData = useMemo(() => getChartData(sector), [sector]);
   const watchlist = useMemo(() => getWatchlist(sector), [sector]);
 
-  const handleExport = () => {
-    const rows = watchlist.map((w) => ({
-      Occupation: w.occupation,
-      Sector: w.sector,
-      District: w.district,
-      State: w.state,
-      'Current Seats': w.currentSeats,
-      'Required Seats': w.requiredSeats,
-      Deficit: w.deficit,
-      Severity: w.severity,
-      'Months to Action': w.monthsToAction,
-    }));
-    const csv = toCSV(rows);
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lmis-watchlist-${sector.replace(/\s+/g, '-').toLowerCase()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
@@ -129,9 +108,9 @@ export default function NationalOverviewPage() {
           <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
             <div className="text-right text-xs">
               <span className="font-semibold text-slate-900 block leading-tight">Nodal Officer</span>
-              <span className="text-[10px] text-slate-500">Govt. of India</span>
+              <span className="text-[10px] text-slate-500 font-mono">Govt. of India</span>
             </div>
-            <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
               NI
             </div>
           </div>
@@ -158,14 +137,15 @@ export default function NationalOverviewPage() {
             Showing data for <span className="font-medium text-slate-600">{sector}</span>
           </span>
         </div>
+
         <Button
           variant="outline"
           size="sm"
-          onClick={handleExport}
+          onClick={() => setIsExportModalOpen(true)}
           className="border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-medium"
         >
           <Download className="mr-2 h-3.5 w-3.5 text-slate-500" />
-          Export CSV
+          Export Report / CSV
         </Button>
       </div>
 
@@ -311,6 +291,13 @@ export default function NationalOverviewPage() {
           </Table>
         </div>
       </div>
+
+      {/* Interactive Custom Export Modal */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        defaultSector={sector}
+      />
     </div>
   );
 }
