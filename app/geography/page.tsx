@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, Download, Building2, MapPin } from 'lucide-react';
+import { Search, Download, Filter, MapPin, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { IndiaMap, STATE_METRICS_DATA } from '@/components/lmis/india-map';
 import {
   Select,
   SelectContent,
@@ -21,7 +22,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-// Mock dataset for State & District view
 const DISTRICT_DATA = [
   { district: 'Patna', state: 'Bihar', sector: 'Renewable Energy', demand: 8200, supply: 3100, gap: 5100, gapPct: 62, severity: 'Severe', institutes: 8 },
   { district: 'Gaya', state: 'Bihar', sector: 'Construction', demand: 4100, supply: 2400, gap: 1700, gapPct: 41, severity: 'Moderate', institutes: 5 },
@@ -31,6 +31,9 @@ const DISTRICT_DATA = [
   { district: 'Mumbai', state: 'Maharashtra', sector: 'IT & ITES', demand: 24200, supply: 16800, gap: 7400, gapPct: 31, severity: 'Low', institutes: 34 },
   { district: 'Nagpur', state: 'Maharashtra', sector: 'Automotive', demand: 6800, supply: 3200, gap: 3600, gapPct: 53, severity: 'Severe', institutes: 7 },
   { district: 'Bengaluru', state: 'Karnataka', sector: 'IT & ITES', demand: 28500, supply: 19200, gap: 9300, gapPct: 33, severity: 'Low', institutes: 41 },
+  { district: 'Hyderabad', state: 'Telangana', sector: 'IT & ITES', demand: 21000, supply: 14800, gap: 6200, gapPct: 30, severity: 'Low', institutes: 28 },
+  { district: 'Lucknow', state: 'Uttar Pradesh', sector: 'Construction', demand: 7600, supply: 4200, gap: 3400, gapPct: 45, severity: 'Moderate', institutes: 9 },
+  { district: 'Jaipur', state: 'Rajasthan', sector: 'Healthcare', demand: 9200, supply: 5100, gap: 4100, gapPct: 45, severity: 'Moderate', institutes: 11 },
 ];
 
 export default function GeographyPage() {
@@ -48,25 +51,44 @@ export default function GeographyPage() {
     });
   }, [selectedState, searchQuery]);
 
-  const totalDemand = useMemo(() => DISTRICT_DATA.reduce((acc, curr) => acc + curr.demand, 0), []);
-  const totalGap = useMemo(() => DISTRICT_DATA.reduce((acc, curr) => acc + curr.gap, 0), []);
-  const totalInstitutes = useMemo(() => DISTRICT_DATA.reduce((acc, curr) => acc + curr.institutes, 0), []);
+  const totalDemand = useMemo(() => filteredData.reduce((acc, curr) => acc + curr.demand, 0), [filteredData]);
+  const totalGap = useMemo(() => filteredData.reduce((acc, curr) => acc + curr.gap, 0), [filteredData]);
+
+  const handleExportCSV = () => {
+    const headers = ['District', 'State', 'Sector', 'Demand', 'Supply', 'Gap', 'Gap %', 'Severity', 'Institutes'];
+    const rows = filteredData.map(d => [d.district, d.state, d.sector, d.demand, d.supply, d.gap, `${d.gapPct}%`, d.severity, d.institutes]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `lmis-geography-${selectedState.toLowerCase()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Title Header */}
+    <div className="space-y-6 max-w-[1600px] mx-auto font-sans">
+      {/* Page Title & Context Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">State & District Geography</h1>
+          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+            <span>Ministry of Skill Development & Entrepreneurship</span>
+            <span>•</span>
+            <span className="text-blue-700">734 Districts Reporting</span>
+          </div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            State & District Skill Gap Intelligence
+          </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Filterable breakdown of skill gaps across Indian districts
+            District-level comparison of industry workforce demand against accredited training seat capacity.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="text-right text-xs">
             <span className="font-semibold text-slate-900 block leading-tight">Nodal Officer</span>
-            <span className="text-[10px] text-slate-500">Govt. of India</span>
+            <span className="text-[10px] text-slate-500 font-mono">Govt. of India</span>
           </div>
           <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
             NI
@@ -74,29 +96,12 @@ export default function GeographyPage() {
         </div>
       </div>
 
-      {/* KPI Overview Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 bg-white border border-slate-200 p-4 rounded-sm text-xs">
-        <div>
-          <span className="text-slate-500 text-[11px] uppercase font-semibold block">Districts Listed</span>
-          <span className="text-xl font-bold font-mono tabular-nums text-slate-900">{DISTRICT_DATA.length}</span>
-        </div>
-        <div>
-          <span className="text-slate-500 text-[11px] uppercase font-semibold block">Total Demand</span>
-          <span className="text-xl font-bold font-mono tabular-nums text-slate-900">{totalDemand.toLocaleString('en-IN')}</span>
-        </div>
-        <div>
-          <span className="text-slate-500 text-[11px] uppercase font-semibold block">Total Gap</span>
-          <span className="text-xl font-bold font-mono tabular-nums text-rose-600">{totalGap.toLocaleString('en-IN')}</span>
-        </div>
-        <div>
-          <span className="text-slate-500 text-[11px] uppercase font-semibold block">Training Institutes</span>
-          <span className="text-xl font-bold font-mono tabular-nums text-slate-900">{totalInstitutes}</span>
-        </div>
-      </div>
+      {/* Regional GIS Component */}
+      <IndiaMap selectedState={selectedState} onSelectState={setSelectedState} />
 
-      {/* Controls & Filter Bar */}
+      {/* Filter Toolbar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-slate-200 p-3 rounded-sm">
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-1 max-w-md">
+        <div className="flex items-center gap-3 w-full sm:w-auto flex-1 max-w-lg">
           <div className="relative w-full">
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
             <Input
@@ -107,26 +112,30 @@ export default function GeographyPage() {
               className="pl-9 text-xs h-8 bg-slate-50/50"
             />
           </div>
+
           <Select value={selectedState} onValueChange={setSelectedState}>
-            <SelectTrigger className="w-[140px] text-xs h-8 bg-slate-50/50">
+            <SelectTrigger className="w-[160px] text-xs h-8 bg-slate-50/50">
               <SelectValue placeholder="Select State" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="All States" className="text-xs">All States</SelectItem>
-              <SelectItem value="Bihar" className="text-xs">Bihar</SelectItem>
-              <SelectItem value="Maharashtra" className="text-xs">Maharashtra</SelectItem>
-              <SelectItem value="Karnataka" className="text-xs">Karnataka</SelectItem>
+              {Object.keys(STATE_METRICS_DATA).map((st) => (
+                <SelectItem key={st} value={st} className="text-xs">{st}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        <Button variant="outline" size="sm" className="text-xs h-8 border-slate-200">
-          <Download className="mr-1.5 h-3.5 w-3.5 text-slate-500" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-slate-500">Filtered Gaps: <strong className="text-slate-900">{filteredData.length} Districts</strong></span>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="text-xs h-8 border-slate-200">
+            <Download className="mr-1.5 h-3.5 w-3.5 text-slate-500" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
-      {/* Table */}
+      {/* Data Table */}
       <div className="border border-slate-200 bg-white rounded-sm overflow-hidden">
         <Table>
           <TableHeader>
@@ -143,26 +152,34 @@ export default function GeographyPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredData.map((row) => (
-              <TableRow key={`${row.district}-${row.sector}`} className="border-slate-200 text-xs">
-                <TableCell className="font-semibold text-slate-900">{row.district}</TableCell>
-                <TableCell className="text-slate-600">{row.state}</TableCell>
-                <TableCell className="text-slate-600">{row.sector}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-slate-800">{row.demand.toLocaleString('en-IN')}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-slate-600">{row.supply.toLocaleString('en-IN')}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums font-semibold text-rose-600">{row.gap.toLocaleString('en-IN')}</TableCell>
-                <TableCell className="text-center font-mono tabular-nums font-medium text-slate-700">{row.gapPct}%</TableCell>
-                <TableCell className="text-center">
-                  <Badge
-                    variant={row.severity === 'Severe' ? 'destructive' : row.severity === 'Moderate' ? 'default' : 'secondary'}
-                    className="text-[10px] rounded-xs font-semibold"
-                  >
-                    {row.severity}
-                  </Badge>
+            {filteredData.length > 0 ? (
+              filteredData.map((row) => (
+                <TableRow key={`${row.district}-${row.sector}`} className="border-slate-200 text-xs hover:bg-slate-50/60">
+                  <TableCell className="font-semibold text-slate-900">{row.district}</TableCell>
+                  <TableCell className="text-slate-600">{row.state}</TableCell>
+                  <TableCell className="text-slate-600">{row.sector}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums text-slate-800">{row.demand.toLocaleString('en-IN')}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums text-slate-600">{row.supply.toLocaleString('en-IN')}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums font-semibold text-rose-600">-{row.gap.toLocaleString('en-IN')}</TableCell>
+                  <TableCell className="text-center font-mono tabular-nums font-medium text-slate-700">{row.gapPct}%</TableCell>
+                  <TableCell className="text-center">
+                    <Badge
+                      variant={row.severity === 'Severe' ? 'destructive' : row.severity === 'Moderate' ? 'default' : 'secondary'}
+                      className="text-[10px] rounded-xs font-semibold"
+                    >
+                      {row.severity}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums text-slate-600">{row.institutes}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-8 text-xs text-slate-400 font-mono">
+                  No district data matches the selected filters.
                 </TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-slate-600">{row.institutes}</TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </div>
